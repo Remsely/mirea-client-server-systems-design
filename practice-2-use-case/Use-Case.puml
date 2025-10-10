@@ -1,0 +1,41 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Клиент" as Client
+actor "Бухгалтер" as Accountant
+actor "SRE-инженер" as SRE
+
+rectangle "Система запроса документов по бухгалтерским операциям" {
+  usecase "Пройти аутентификацию\nпользователя" as Auth
+
+  usecase "Посмотреть\nуведомление" as ViewNotification
+  usecase "Загрузить\nдокументы" as UploadDocs
+  usecase "Скачать\nдокументы" as DownloadDocs
+
+  usecase "Создать сбор\nдокументов" as CreateCollection
+  usecase "Посмотреть статус\nсбора документов" as ViewStatus
+
+  usecase "Посмотреть инциденты по\nпроцессам сбора" as IncidentsStatus
+}
+
+
+Client --> ViewNotification
+Client --> UploadDocs
+Client --> DownloadDocs
+
+Accountant --> CreateCollection
+Accountant --> ViewStatus
+Accountant --> UploadDocs
+Accountant --> DownloadDocs
+
+SRE --> IncidentsStatus
+
+ViewNotification ..> Auth : <<include>>
+UploadDocs ..> Auth : <<include>>
+DownloadDocs ..> Auth : <<include>>
+CreateCollection ..> Auth : <<include>>
+ViewStatus ..> Auth : <<include>>
+IncidentsStatus ..> Auth : <<include>>
+
+@enduml
