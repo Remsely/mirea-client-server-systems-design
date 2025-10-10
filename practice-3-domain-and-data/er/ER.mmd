@@ -1,0 +1,68 @@
+erDiagram
+    collections ||--o{ collection_documents : "1:N"
+    collection_documents }o--o| documents : "N:0..1"
+    collection_documents }o--o| doc_storage_document_infos : "N:0..1"
+    documents ||--o{ files : "1:N"
+    documents ||--o{ upload_tasks : "1:N"
+    documents ||--o{ verify_tasks : "1:N"
+    documents }o--o| doc_storage_document_infos : "N:0..1"
+
+    collections {
+        uuid id PK
+        varchar_255 company_id "NOT NULL"
+        enum status "NOT NULL"
+        varchar_50 pushing "NOT NULL"
+        varchar_100 verification_template "NOT NULL"
+        timestamptz expired_date "NOT NULL"
+    }
+
+    collection_documents {
+        uuid id PK
+        uuid collection_id FK "NOT NULL, ON DELETE RESTRICT"
+        varchar_100 type "NOT NULL"
+        varchar_255 contact_id "NOT NULL"
+        text comment "DEFAULT ''"
+        timestamptz period_start "Nullable"
+        timestamptz period_end "Nullable"
+        uuid document_id FK "NOT NULL, ON DELETE RESTRICT"
+        uuid doc_storage_info_id FK "Nullable, ON DELETE RESTRICT"
+    }
+
+    documents {
+        uuid id PK
+        varchar_255 company_id "NOT NULL"
+        varchar_255 contact_id "Nullable"
+        varchar_100 type "NOT NULL"
+    }
+
+    files {
+        uuid id PK
+        uuid document_id FK "NOT NULL, ON DELETE RESTRICT"
+        varchar_500 file_name "NOT NULL"
+        uuid doc_storage_id "NOT NULL"
+        enum status "NOT NULL"
+        timestamptz uploaded_at "NOT NULL"
+    }
+
+    upload_tasks {
+        uuid id PK
+        uuid document_id FK "NOT NULL, ON DELETE RESTRICT"
+        enum status "NOT NULL"
+        timestamptz uploaded_at "Nullable"
+    }
+
+    verify_tasks {
+        uuid id PK
+        uuid document_id FK "NOT NULL, ON DELETE RESTRICT"
+        uuid doc_verify_system_task_id "Nullable"
+        uuid[] doc_storage_ids "NOT NULL"
+        enum status "NOT NULL"
+        varchar_100 template "NOT NULL"
+    }
+
+    doc_storage_document_infos {
+        uuid id PK
+        uuid document_id FK "NOT NULL, ON DELETE RESTRICT"
+        uuid[] doc_storage_ids "NOT NULL"
+        enum status "NOT NULL"
+    }

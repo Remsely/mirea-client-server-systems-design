@@ -1,0 +1,69 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+class Collection {
+  + id: UUID
+  + companyId: String
+  + documents: List<CollectionDocument>
+  + status: String
+  + pushing: PushingStrategy
+  + verificationTemplate: VerificationTemplate
+  + expiredDate: Instant
+}
+
+class CollectionDocument {
+  + id: UUID
+  + type: String
+  + contactId: String
+  + comment: String
+  + period: Pair<Instant, Instant>
+  + docStorageDocumentInfo: docStorageDocumentInfo?
+}
+
+class Document {
+  + id: UUID
+  + companyId: String
+  + contactId: String?
+  + type: DocumentType
+  + files: List<File>
+  + uploadTasks: List<UploadTask>
+  + verifyTasks: List<VerifyTask>
+}
+
+class File {
+  + id: UUID
+  + fileName: String
+  + docStorageId: UUID
+  + status: String
+  + uploadedAt: Instant
+}
+
+class UploadTask {
+  + id: UUID
+  + status: String
+  + uploadedAt: Instant?
+}
+
+class VerifyTask {
+  + id: UUID
+  + docVerifySystemTaskId: UUID?
+  + docStorageIds: Set<UUID>
+  + status: String
+  + template: VerificationTemplate
+}
+
+class DocStorageDocumentInfo {
+  + id: UUID
+  + docStorageIds: Set<UUID>
+  + status: String
+}
+
+Collection "1" *-- "1..*" CollectionDocument : contains
+CollectionDocument "1" --> "0..1" Document : references
+Document "1" *-- "1..*" File : contains
+Document "1" *-- "0..*" UploadTask : tracks
+Document "1" *-- "0..*" VerifyTask : tracks
+CollectionDocument "1" --> "0..1" DocStorageDocumentInfo : aggregates
+Document "1" --> "0..1" DocStorageDocumentInfo : aggregates
+
+@enduml
