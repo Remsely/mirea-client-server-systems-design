@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant Client
+    participant API as Collections API
+    participant Auth
+    participant Storage as DocStorage
+    participant DB
+
+    Client->>Auth: Bearer token
+    Auth-->>Client: 200 OK
+
+    Client->>API: POST /v1/documents/{document_id}/files (multipart) Idempotency-Key: file-1
+    API->>DB: validate document exists & permissions
+    DB-->>API: ok
+    API->>Storage: upload file (stream)
+    Storage-->>API: 201 + doc_storage_id
+    API->>DB: insert file record (doc_storage_id, file_name, uploader, status=UPLOADED)
+    DB-->>API: file_id
+    API->>DB: save idempotency key mapping -> file_id
+    API-->>Client: 201 Created {file_id, doc_storage_id}

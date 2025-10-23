@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant Accountant
+    participant API as Collections API
+    participant Auth as SSO
+    participant DB as Database
+    participant Notifier
+
+    Accountant->>Auth: Authorization (Bearer token)
+    Auth-->>Accountant: 200 OK
+
+    Accountant->>API: POST /v1/collections (Idempotency-Key: x-1) {body}
+    API->>DB: check idempotency key x-1
+    alt found
+        DB-->>API: existing response
+        API-->>Accountant: 201 Created (existing resource)
+    else not found
+        API->>DB: create collection, insert collection_documents
+        DB-->>API: created collection_id
+        API->>DB: save idempotency record (key x-1 -> response)
+        API->>Notifier: send notification to client (email/push)
+        Notifier-->>API: 202 accepted
+        API-->>Accountant: 201 Created (Location: /v1/collections/{id})
+    end

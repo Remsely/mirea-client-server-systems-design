@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant Client
+    participant API
+    participant DB
+    participant VerifySys as Verification Service
+    participant Orchestrator
+
+    Client->>API: POST /v1/collections/{id}/submit (Idempotency-Key: submit-1)
+    API->>DB: check collection status & idempotency key
+    alt already submitted
+        DB-->>API: previous task info
+        API-->>Client: 202 Accepted (existing verify_task_id)
+    else not submitted
+        API->>DB: gather uploaded files list per document
+        DB-->>API: files[]
+        API->>VerifySys: create verification task (files metadata)
+        VerifySys-->>API: task_id
+        API->>DB: insert verify_task, update collection.status=SENT_FOR_VERIFICATION
+        API->>Orchestrator: create workflow job (trace_id)
+        API-->>Client: 202 Accepted {verify_task_id, status}
+    end
