@@ -1,0 +1,1 @@
+[Доска Miro](https://miro.com/app/board/uXjVJvNO81c=/?share_link_id=677623310588)
