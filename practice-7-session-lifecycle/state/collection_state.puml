@@ -1,0 +1,53 @@
+@startuml
+title Состояния Сбора Документов (Collection)
+
+[*] --> NEW : (Accountant Create)
+
+state NEW : entry/ Создание бухгалтером
+state NEW : do/ Инициализация процесса
+
+state SENT_FOR_UPLOAD : entry/ Подготовка к приему файлов
+state SENT_FOR_UPLOAD : do/ Ожидание загрузки документов
+
+state UPLOADED : entry/ Прием файлов завершен
+state UPLOADED : do/ Проверка наличия всех документов
+
+state SENT_FOR_VERIFICATION : entry/ Отправка файлов на проверку
+state SENT_FOR_VERIFICATION : do/ Ожидание результата верификации
+
+state VERIFIED : entry/ Успешное завершение верификации
+state VERIFIED : do/ Подготовка к закрытию сбора
+
+state REJECTED : entry/ Ошибка при верификации
+state REJECTED : do/ Уведомление о необходимости дозагрузки
+
+state CANCELLED : entry/ Инициирована отмена бухгалтером
+state CANCELLED : do/ Завершение всех активных процессов
+
+state COLLECTED : entry/ Финализация сбора
+state COLLECTED : do/ Архивирование данных
+
+state VERIFICATION_CHOICE <<choice>>
+state UPLOADED_CHOICE <<choice>>
+state SENT_FOR_UPLOAD_CHOICE <<choice>>
+state CANCEL_FORK <<fork>>
+state TERMINATE_FORK <<fork>>
+
+NEW --> SENT_FOR_UPLOAD : (Процесс инициирован)
+SENT_FOR_UPLOAD --> SENT_FOR_UPLOAD_CHOICE
+SENT_FOR_UPLOAD_CHOICE --> UPLOADED : (Файл загружен)
+UPLOADED --> UPLOADED_CHOICE
+UPLOADED_CHOICE --> SENT_FOR_VERIFICATION : (Загрузка подтверждена)
+SENT_FOR_VERIFICATION --> VERIFICATION_CHOICE
+VERIFICATION_CHOICE --> VERIFIED : (Документ верифицирован)
+VERIFICATION_CHOICE --> REJECTED : (Ошибка верификации документа)
+REJECTED --> SENT_FOR_UPLOAD : (Требуется дозагрузка)
+VERIFIED --> COLLECTED : (Сбор завершен)
+NEW --> CANCEL_FORK
+SENT_FOR_UPLOAD_CHOICE --> CANCEL_FORK
+UPLOADED_CHOICE --> CANCEL_FORK
+CANCEL_FORK --> CANCELLED : Сбор документов отменен бухгалтером
+COLLECTED --> TERMINATE_FORK
+CANCELLED --> TERMINATE_FORK
+TERMINATE_FORK --> [*]
+@enduml

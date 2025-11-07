@@ -1,0 +1,39 @@
+@startuml
+title Состояния Запрашиваемого Документа (CollectionDocument)
+
+[*] --> PENDING : (Сбор создан)
+
+state PENDING : entry/ Создание запроса
+state PENDING : do/ Ожидание загрузки файла
+
+state UPLOADED : entry/ Загрузка файла завершена
+state UPLOADED : do/ Подготовка к отправке на верификацию
+
+state IN_VERIFICATION : entry/ Передача файла на проверку
+state IN_VERIFICATION : do/ Ожидание результата
+
+state VERIFIED : entry/ Подтверждение верификации
+state VERIFIED : do/ Завершение обработки документа
+
+state REJECTED : entry/ Ошибка при проверке
+state REJECTED : do/ Уведомление о необходимости исправлений
+
+state REMOVED : entry/ Инициировано удаление файла
+state REMOVED : do/ Очистка и удаление данных
+
+state UPLOADED_CHOICE <<choice>>
+state IN_VERIFICATION_CHOICE <<choice>>
+state TERMINATE_FORK <<fork>>
+
+PENDING --> UPLOADED : (POST /files 201 Created)
+UPLOADED --> UPLOADED_CHOICE
+UPLOADED_CHOICE --> IN_VERIFICATION : (POST /submit Сбора)
+UPLOADED_CHOICE --> REMOVED : (Файл удален)
+IN_VERIFICATION --> IN_VERIFICATION_CHOICE
+IN_VERIFICATION_CHOICE --> VERIFIED : (Документ верифицирован успешно)
+IN_VERIFICATION_CHOICE --> REJECTED : (Ошибка при верификации документа)
+VERIFIED --> TERMINATE_FORK
+REJECTED --> TERMINATE_FORK
+REMOVED --> TERMINATE_FORK
+TERMINATE_FORK --> [*]
+@enduml

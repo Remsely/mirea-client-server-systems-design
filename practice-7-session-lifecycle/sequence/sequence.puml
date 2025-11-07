@@ -1,0 +1,57 @@
+@startuml
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+skinparam participantpadding 10
+skinparam boxpadding 10
+
+participant "Frontend" as Client
+participant "Backend (Core)" as Core
+participant "Auth (SSO)" as Auth
+participant "DocStorage" as Storage
+participant "Database" as DB
+
+title Последовательность сессии (Stateless Model)
+
+== 1. Авторизация ==
+Client -> Core: POST /v1/auth/refresh (refresh_token)
+Core -> Auth: Validate Refresh Token
+alt
+    Auth --> Core: 401 Unauthorized
+    Core --> Client: 401 Unauthorized
+else [. Happy Path]
+    Auth --> Core: New Access Token (JWT, 15 min)
+    Core --> Client: 200 OK (Access Token)
+ end
+
+== 2. Получение начального состояния ==
+Client -> Core: GET /v1/collections (Auth: Bearer JWT)
+Core -> DB: SELECT * FROM collections WHERE user_id=...
+DB --> Core: [Collection 1, Collection 2]
+Core --> Client: 200 OK (Snapshot)
+
+== 3. Загрузка файла ==
+
+Client -> Core: POST /v1/documents/doc1/files (Idempotency-Key: KEY-123, File)
+Core -> Core: Validate request (e.g., file size > 50MB?)
+alt [Ошибка 400 Bad Request]
+    Core --> Client: 400 Bad Request (File too large)
+end
+
+Core -> DB: Check Idempotency-Key (KEY-123) & Permissions
+alt [Ошибка 500 (Сбой Хранилища)]
+    DB --> Core: OK to proceed
+    Core -> Storage: Upload file (stream)
+    Storage --> Core: 500 Server Error (e.g., S3 timeout)
+    Core -> Core: (Log error)
+    Core --> Client: 500 Internal Server Error (trace_id)
+else [. Happy Path]
+    DB --> Core: OK to proceed
+    Core -> Storage: Upload file (stream)
+    Storage --> Core: 201 + doc_storage_id
+    Core -> DB: insert file record (doc_storage_id, status=UPLOADED)
+    DB --> Core: file_id
+    Core -> DB: save idempotency record (KEY-123 -> file_id)
+    Core --> Client: 201 Created {file_id, doc_storage_id}
+end
+
+@enduml
