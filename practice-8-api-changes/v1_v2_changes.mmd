@@ -1,0 +1,28 @@
+erDiagram
+
+collections {
+    uuid id PK
+    varchar_255 company_id "NOT NULL"
+    enum status "NOT NULL"
+    varchar_50 pushing "NOT NULL"
+    varchar_100 verification_template "NOT NULL"
+    timestamptz expired_date "NOT NULL"
+}
+
+collections_v2 {
+    uuid id PK
+    varchar_255 company_id "NOT NULL"
+    enum status "NOT NULL"
+    varchar_100 verification_template "NOT NULL"
+    timestamptz expired_date "NOT NULL"
+    text internal_memo "O (Additive)"
+    uuid pushing_strategy_id "O, FK (Breaking)"
+}
+
+pushing_strategies {
+    uuid id PK
+    varchar name "R"
+    jsonb rules "R"
+}
+
+collections_v2 ||--o| pushing_strategies: "uses"
