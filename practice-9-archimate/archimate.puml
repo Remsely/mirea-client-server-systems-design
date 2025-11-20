@@ -1,0 +1,186 @@
+@startuml
+' Используем стандартную библиотеку ArchiMate
+!include <archimate/Archimate>
+
+' Настройки оформления для компактности и читаемости
+' skinparam linetype ortho
+skinparam nodesep 25
+skinparam ranksep 45
+skinparam defaultTextAlignment center
+
+title ArchiMate Panorama: Система сбора документов (Pattern: API Gateway)
+
+' ---------------------------------------------------------
+' 1. MOTIVATION & STRATEGY LAYER
+' ---------------------------------------------------------
+package "Motivation & Strategy" {
+    Motivation_Goal(Goal_Eff, "Повышение эффективности\nбухгалтерии")
+    Motivation_Outcome(Out_Auto, "Автоматизация сбора\nи верификации")
+
+    Motivation_Requirement(Req_Perf, "Performance:\np95 Upload <= 5 sec")
+    Motivation_Requirement(Req_Avail, "Availability:\nUptime >= 99.9%")
+    Motivation_Requirement(Req_Sec, "Security:\n100% Auth (JWT)")
+
+    Rel_Influence(Out_Auto, Goal_Eff, "+")
+    Rel_Realization(Req_Perf, Out_Auto)
+    Rel_Realization(Req_Avail, Out_Auto)
+    Rel_Realization(Req_Sec, Out_Auto)
+}
+
+' ---------------------------------------------------------
+' 2. BUSINESS LAYER
+' ---------------------------------------------------------
+package "Business Layer" {
+    Business_Actor(Accountant, "Бухгалтер")
+    Business_Actor(Client, "Клиент (B2B)")
+
+    Business_Service(BizServ, "Сервис запроса\nдокументов")
+
+    Business_Process(Proc_Create, "Создание сбора\n(Initiate Collection)")
+    Business_Process(Proc_Upload, "Загрузка документов\n(Upload Documents)")
+
+    Business_Object(BizObj, "Сбор документов\n(Collection)")
+
+    Rel_Assignment(Accountant, Proc_Create)
+    Rel_Assignment(Client, Proc_Upload)
+
+    Rel_Triggering(Proc_Create, Proc_Upload, "Уведомление")
+
+    Rel_Realization(Proc_Create, BizServ)
+    Rel_Realization(Proc_Upload, BizServ)
+
+    Rel_Access_w(Proc_Create, BizObj)
+    Rel_Access_w(Proc_Upload, BizObj)
+
+    Rel_Serving(BizServ, Out_Auto)
+}
+
+' ---------------------------------------------------------
+' 3. APPLICATION LAYER
+' ---------------------------------------------------------
+package "Application Layer" {
+    Application_Service(AppAPI, "Public API\n(REST/HTTPS)")
+
+    ' Паттерн API Gateway
+    Application_Component(Ingress, "API Gateway\n(Nginx Ingress)")
+
+    ' Микросервисы
+    Application_Component(Core, "Backend Core\n")
+    Application_Component(BPM, "Backend BPM\n(Orchestrator)")
+    Application_Component(BackendAccounting, "Backend Accounting")
+
+    ' Внешние сервисы
+    Application_Component(AuthSSO, "SSO Service")
+    Application_Component(DocStorage, "Document Storage")
+    Application_Component(ExtVerif, "Verification System")
+
+    Application_DataObject(DataColl, "Collection State")
+
+    ' Связи
+    Rel_Realization(Ingress, AppAPI)
+
+    ' Gateway маршрутизирует запросы
+    Rel_Flow(Ingress, Core, "Route requests")
+    Rel_Flow(Ingress, BackendAccounting, "Route requests")
+
+    ' Gateway валидирует токены
+    Rel_Flow(Ingress, AuthSSO, "Validate JWT")
+
+    ' Микросервисы обращаются к данным
+    Rel_Access_rw(Core, DataColl)
+    Rel_Access_r(BackendAccounting, DataColl)
+
+    ' Core -> BPM
+    Rel_Flow(Core, BPM, "Initiate process")
+
+    ' Интеграции с внешними системами
+    Rel_Flow(Core, DocStorage, "Upload/Download")
+    Rel_Flow(Core, ExtVerif, "Verify files")
+    Rel_Flow(BPM, ExtVerif, "Verify in process")
+
+    ' Реализация требований
+    Rel_Realization(Ingress, Req_Sec, "JWT validation")
+    Rel_Realization(Core, Req_Perf, "Fast uploads")
+
+    ' Связь с Business Layer
+    Rel_Serving(AppAPI, Proc_Upload)
+    Rel_Serving(AppAPI, Proc_Create)
+}
+
+' ---------------------------------------------------------
+' 4. TECHNOLOGY LAYER
+' ---------------------------------------------------------
+package "Technology Layer" {
+    rectangle "Pods (Workload)" as K8sCluster {
+        Technology_Artifact(PodIngress, "Pod: Nginx Ingress")
+        Technology_Artifact(PodCore, "Pod: Backend Core")
+        Technology_Artifact(PodBPM, "Pod: Backend BPM\n(Orchestrator)")
+        Technology_Artifact(PodAccounting, "Pod: Backend Accounting")
+    }
+
+    rectangle "Client Layer" {
+        Technology_Artifact(WebApp, "Web App Client")
+        Technology_Artifact(MobileApp, "Mobile App")
+        Technology_Artifact(WebAppAcc, "Web App Accounting")
+    }
+
+    rectangle "Data Layer" {
+        Technology_SystemSoftware(Postgres, "PostgreSQL\n(Collections DB)")
+        Technology_Device(ExtDocStorage, "External Doc Storage\n(S3/API)")
+    }
+
+    ' Реализация логических компонентов физическими
+    Rel_Realization(PodIngress, Ingress)
+    Rel_Realization(PodCore, Core)
+    Rel_Realization(PodBPM, BPM)
+    Rel_Realization(PodAccounting, BackendAccounting)
+
+    ' Клиенты обращаются к Ingress
+    Rel_Flow(WebApp, PodIngress, "HTTPS")
+    Rel_Flow(MobileApp, PodIngress, "HTTPS")
+    Rel_Flow(WebAppAcc, PodIngress, "HTTPS")
+
+    ' Сетевые взаимодействия внутри кластера
+    Rel_Flow(PodIngress, PodCore, "HTTP/ClusterIP:3000")
+    Rel_Flow(PodIngress, PodAccounting, "HTTP/ClusterIP:3001")
+    Rel_Flow(PodCore, PodBPM, "HTTP/ClusterIP:3002")
+
+    ' Доступ к БД
+    Rel_Flow(PodCore, Postgres, "TCP:5432")
+    Rel_Flow(PodBPM, Postgres, "TCP:5432")
+    Rel_Flow(PodAccounting, Postgres, "TCP:5432")
+
+    ' Доступ к внешнему хранилищу
+    Rel_Flow(PodCore, ExtDocStorage, "HTTPS (Document API)")
+
+    ' Реализация NFR инфраструктурой
+    Rel_Realization(K8sCluster, Req_Avail, "Pod orchestration")
+    Rel_Realization(Postgres, Req_Perf, "Indexed queries")
+}
+
+' ---------------------------------------------------------
+' 5. IMPLEMENTATION & MIGRATION
+' ---------------------------------------------------------
+package "Implementation & Migration" {
+    Implementation_Plateau(Plateau_v1, "Plateau: v1 (Legacy System)")
+    Implementation_Plateau(Plateau_v2, "Plateau: v2 (Target System)")
+
+    Implementation_Gap(Gap_v1_v2, "Gap: v1 -> v2")
+
+    Implementation_WorkPackage(WP_Migration, "Work Package:\nПроект внедрения v2") {
+        Implementation_Deliverable(Deliv_v2, "Deliverable:\nСистема v2")
+    }
+
+    Rel_Flow(Plateau_v1, Gap_v1_v2)
+    Rel_Flow(Gap_v1_v2, Plateau_v2)
+
+    Rel_Realization(WP_Migration, Plateau_v2)
+
+    Rel_Realization(WP_Migration, Gap_v1_v2)
+
+    Rel_Access_w(WP_Migration, K8sCluster)
+    Rel_Access_w(WP_Migration, Postgres)
+
+    Rel_Realization(Plateau_v2, Out_Auto)
+}
+@enduml
