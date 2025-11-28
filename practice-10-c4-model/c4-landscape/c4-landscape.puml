@@ -1,0 +1,44 @@
+@startuml
+!include <C4/C4_Context>
+
+title System Landscape (Экосистема Бухгалтерии B2B)
+
+SHOW_PERSON_OUTLINE()
+
+Person(Клиент, "Клиент B2B", "Представитель компании-клиента")
+Person(Бухгалтер, "Бухгалтер", "Сотрудник бухгалтерии")
+Person(SRE, "SRE-инженер", "Оперирует инфраструктурой")
+Person(OperatorVerification, "Оператор верификации", "Валидирует документы в системе верификации")
+
+' --- Граница IT-Ландшафта Предприятия ---
+Enterprise_Boundary(Enterprise, "IT-Ландшафт Предприятия") {
+
+    ' --- Backoffice системы ---
+    System(AdminPanel, "Панель оркестратора", "UI для SRE\nМониторинг процессов BPM")
+
+    ' --- Наша Система ---
+    System(OurSystem, "Система запроса документов", "Новая система (микросервисы)\nКлиент-серверная архитектура")
+
+    ' --- Инфраструктура и сервисы ---
+    System_Ext(SSO, "Система SSO", "Корпоративная авторизация\nOAuth2 / OpenID Connect")
+    System_Ext(DocStorage, "Хранилище документов", "Корпоративное S3/MinIO\nХранение файлов")
+    System_Ext(DWH, "Хранилище DWH", "Аналитическая платформа\nBusiness Intelligence")
+    System_Ext(Notifications, "Система нотификации", "Сервис уведомлений\nEmail / Push / SMS")
+    System_Ext(Verification, "Система верификации", "Проверка документов\nAI / OCR")
+}
+
+' --- Связи: Люди -> Системы ---
+Rel(Клиент, OurSystem, "Загружает документы", "HTTPS")
+Rel(Бухгалтер, OurSystem, "Создает сборы", "HTTPS")
+Rel(SRE, AdminPanel, "Мониторит процессы", "HTTPS")
+Rel(OperatorVerification, Verification, "Валидирует документы", "UI")
+
+' --- Связи: Система -> Инфраструктура ---
+Rel(OurSystem, SSO, "Аутентифицирует пользователей", "OAuth2")
+Rel(OurSystem, DocStorage, "Хранит и читает файлы", "S3 API")
+Rel(OurSystem, DWH, "Поставляет данные для аналитики", "Async")
+Rel(OurSystem, Notifications, "Отправляет уведомления", "REST")
+Rel(OurSystem, Verification, "Отправляет документы на проверку", "REST")
+Rel(AdminPanel, OurSystem, "Мониторит процессы", "REST")
+
+@enduml

@@ -1,0 +1,62 @@
+@startuml
+!include <C4/C4_Component>
+
+' --- Контейнеры и Системы, с которыми взаимодействует Backend Core ---
+
+' Внутри системы
+Container(BackendAccounting, "Backend бухгалтерии", "Java, Spring Boot", "Вызывает Core API для данных о файлах")
+Container(BackendBPM, "Backend (BPM)", "Camunda", "Получает команды от Core")
+ContainerDb(DB, "База данных", "PostgreSQL", "Хранит метаданные")
+
+' Вне системы
+System_Ext(WebAppClient, "Веб-приложение клиента", "React SPA")
+System_Ext(MobileApp, "Мобильное приложение", "iOS/Android")
+System_Ext(DocStorage, "Хранилище документов", "S3 API")
+System_Ext(Verification, "Система верификации", "REST API")
+System_Ext(Notifications, "Система нотификации", "REST API")
+System_Ext(SSO, "Система SSO", "OAuth2")
+
+' --- Граница контейнера Backend (Core) ---
+Container_Boundary(Core, "Backend (Core)") {
+
+    Component(ApiControllers, "API Controllers", "Spring MVC", "REST API эндпоинты для /v1/documents, /v1/files")
+    Component(SecurityComponent, "Security Component", "Spring Security", "Валидация JWT, проверка авторизации")
+
+    Component(FileService, "File Service", "Java", "Бизнес-логика загрузки, скачивания и удаления файлов.")
+    Component(ProcessService, "Process Service", "Java", "Бизнес-логика управления жизненным циклом (старт BPM, отправка уведомлений).")
+
+    Component(DocStorageClient, "DocStorage Client", "Java, S3 SDK", "Клиент для интеграции с Хранилищем документов.")
+    Component(VerificationClient, "Verification Client", "Java, Feign/RestTemplate", "Клиент для интеграции с Системой верификации.")
+    Component(NotificationClient, "Notification Client", "Java, Feign/RestTemplate", "Клиент для интеграции с Системой нотификации.")
+    Component(BpmClient, "BPM Client", "Java, Feign/RestTemplate", "Клиент для интеграции с Backend (BPM).")
+
+    Component(Persistence, "Persistence Layer", "JPA/Hibernate", "Абстракция для работы с БД (Репозитории).")
+
+    ' --- Связи внутри контейнера ---
+    Rel(ApiControllers, SecurityComponent, "Проверка доступа")
+    Rel(ApiControllers, FileService, "Вызов операций с файлами")
+    Rel(ApiControllers, ProcessService, "Вызов операций с процессами")
+
+    Rel(FileService, Persistence, "Сохранение/Чтение метаданных")
+    Rel(FileService, DocStorageClient, "Передача/Получение байтов файла")
+    Rel(FileService, VerificationClient, "Отправка на верификацию")
+
+    Rel(ProcessService, BpmClient, "Запуск процесса")
+    Rel(ProcessService, NotificationClient, "Отправка уведомления")
+
+    Rel(Persistence, DB, "CRUD (meta)", "JDBC")
+
+    ' --- Связи с внешними компонентами ---
+    Rel(SecurityComponent, SSO, "Валидация токена", "HTTPS")
+    Rel(DocStorageClient, DocStorage, "Запись/Чтение", "S3 API/HTTPS")
+    Rel(VerificationClient, Verification, "Запрос проверки", "REST/HTTPS")
+    Rel(NotificationClient, Notifications, "Запрос отправки", "REST/HTTPS")
+    Rel(BpmClient, BackendBPM, "Управление процессом", "REST/HTTPS")
+}
+
+' --- Связи от внешних акторов к компонентам ---
+Rel(WebAppClient, ApiControllers, "Загрузка/скачивание файлов", "REST/HTTPS")
+Rel(MobileApp, ApiControllers, "Загрузка/скачивание файлов", "REST/HTTPS")
+Rel(BackendAccounting, ApiControllers, "Запрос данных о файлах", "REST/HTTPS")
+
+@enduml

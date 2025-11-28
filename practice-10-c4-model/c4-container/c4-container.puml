@@ -1,0 +1,71 @@
+@startuml
+!include <C4/C4_Container>
+
+' --- Акторы (те же, что в Контексте) ---
+Person(Клиент, "Клиент", "Представитель компании-клиента.")
+Person(Бухгалтер, "Бухгалтер", "Сотрудник. Создаёт запросы документов.")
+Person(SRE, "SRE-инженер", "Сотрудник. Следит за состоянием оркестратора.")
+
+' --- Внешние Системы (те же, что в Контексте) ---
+System_Ext(SSO, "Система SSO", "OAuth2 / ролевой доступ.")
+System_Ext(MSA, "Система MSA", "OAuth2 Client Credentials.")
+System_Ext(DocStorage, "Хранилище документов", "Хранение файлов (S3 API).")
+System_Ext(Verification, "Система верификации", "Проверка формата документов.")
+System_Ext(Notifications, "Система нотификации", "Уведомления (Email/Push).")
+System_Ext(DWH, "Хранилище DWH", "Аналитика.")
+System_Ext(AdminPanel, "Панель оркестратора", "UI для мониторинга BPM.")
+
+' --- Граница Системы (из Контекста) ---
+System_Boundary(Система, "Система запроса документов") {
+
+    ' --- Клиентские приложения ---
+    Container(WebAppClient, "Веб-приложение клиента", "TypeScript, Angular", "SPA в браузере Клиента.")
+    Container(WebAppAccounting, "Веб-приложение бухгалтера", "TypeScript, Angular", "SPA в браузере Бухгалтера.")
+    Container(MobileApp, "Мобильное приложение", "Kotlin Multiplatform", "Мобильный клиент для Клиента.")
+
+    ' --- Бэкенд-сервисы ---
+    Container(BackendAccounting, "Backend бухгалтерии", "Kotlin, Spring Boot", "API для управления сборами, CRUD операции.")
+    Container(BackendCore, "Backend (Core)", "Kotlin, Spring Boot", "API для файлов, бизнес-логика, интеграции.")
+    Container(BackendBPM, "Backend (BPM)", "Kotlin, Camunda, Spring Boot", "Оркестратор процессов сбора (statemachine).")
+
+    ' --- Хранилища данных ---
+    ContainerDb(DB, "База данных", "PostgreSQL", "Хранение статусов сборов, метаданных, ссылок на файлы.")
+}
+
+' --- Связи Акторы -> UI ---
+Rel(Клиент, WebAppClient, "Использует", "HTTPS")
+Rel(Клиент, MobileApp, "Использует", "HTTPS")
+Rel(Бухгалтер, WebAppAccounting, "Использует", "HTTPS")
+Rel(SRE, AdminPanel, "Использует", "HTTPS")
+
+' --- Связи UI -> Backend ---
+Rel(WebAppClient, BackendAccounting, "Получение списка сборов", "REST/HTTPS (JSON)")
+Rel(WebAppClient, BackendCore, "Загрузка/скачивание файлов", "REST/HTTPS (multipart)")
+Rel(MobileApp, BackendAccounting, "Получение списка сборов", "REST/HTTPS (JSON)")
+Rel(MobileApp, BackendCore, "Загрузка/скачивание файлов", "REST/HTTPS (multipart)")
+Rel(WebAppAccounting, BackendAccounting, "Создание/управление сборами", "REST/HTTPS (JSON)")
+
+' --- Связи Backend <-> Backend ---
+Rel(BackendAccounting, BackendCore, "Запрос данных о файлах", "REST/HTTPS (JSON)")
+Rel(BackendCore, BackendBPM, "Запуск/обновление процесса", "REST/HTTPS (JSON)")
+Rel(AdminPanel, BackendBPM, "Мониторинг процессов", "REST/HTTPS (JSON)")
+
+' --- Связи Backend -> База данных ---
+Rel(BackendAccounting, DB, "Чтение/Запись (статусы сборов)", "JDBC/TCP")
+Rel(BackendCore, DB, "Чтение/Запись (метаданные файлов)", "JDBC/TCP")
+Rel(BackendBPM, DB, "Чтение/Запись (состояние процессов)", "JDBC/TCP")
+
+' --- Связи Backend -> Внешние системы ---
+Rel(BackendCore, DocStorage, "Запись/Чтение файлов", "S3 API/HTTPS")
+Rel(BackendCore, Verification, "Отправка на проверку", "REST/HTTPS")
+Rel(BackendCore, Notifications, "Запрос на уведомление", "REST/HTTPS")
+Rel(BackendCore, DWH, "Отправка событий", "Kafka/HTTPS")
+
+' --- Авторизация ---
+Rel(BackendAccounting, SSO, "Валидация токена", "HTTPS")
+Rel(BackendCore, SSO, "Валидация токена", "HTTPS")
+Rel(BackendAccounting, MSA, "Получение токена", "HTTPS")
+Rel(BackendCore, MSA, "Получение токена", "HTTPS")
+Rel(BackendBPM, MSA, "Получение токена", "HTTPS")
+
+@enduml
